@@ -105,7 +105,7 @@ pub struct Packer<S: Steps, W: Write> {
 impl<W: Write> Packer<NoneStep, W> {
     #[must_use]
     /// Create a Packer, writing data using the given writer.
-    pub fn from_writer(writer: W) -> Packer<HeaderStep, W> {
+    pub const fn from_writer(writer: W) -> Packer<HeaderStep, W> {
         Packer {
             pos: 0,
             writer: Some(writer),
@@ -192,7 +192,7 @@ impl<W: Write> Packer<RecordStep, W> {
             .toc
             .take()
             .expect("ToC is Some here, we built it in the Header step.")
-            .drain(..)
+            .into_iter()
         {
             let written_data = write_toc_entry(
                 &mut self

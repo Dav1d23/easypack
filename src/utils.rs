@@ -3,7 +3,7 @@ pub static FILE_TYPE: &str = "SMPL";
 /// The header size.
 pub static HEADER_SIZE: u64 = 6;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct Version {
     maj: u8,
     min: u8,

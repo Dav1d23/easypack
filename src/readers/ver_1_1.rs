@@ -98,8 +98,7 @@ pub fn read_record<R: Read + Seek>(r: &mut R, pos: u64, len: usize) -> Result<Ve
     let bytes_read = r.read(&mut res)?;
     if bytes_read != len {
         return Err(EasypackError::InvalidFileError(format!(
-            "Not enough bytes to read: {}",
-            bytes_read
+            "Not enough bytes to read: {bytes_read}"
         )));
     }
 
@@ -122,8 +121,7 @@ pub fn read_toc_entries<R: Read + Seek>(
         let bytes_read = r.read(&mut buf64)?;
         if bytes_read != U64_SIZE {
             return Err(EasypackError::InvalidFileError(format!(
-                "Not enough bytes to read the pos of the {}th toc? bytes_read: {}",
-                i, bytes_read
+                "Not enough bytes to read the pos of the {i}th toc? bytes_read: {bytes_read}"
             )));
         }
         let pos = u64::from_le_bytes(buf64);
@@ -131,8 +129,7 @@ pub fn read_toc_entries<R: Read + Seek>(
         let bytes_read = r.read(&mut buf64)?;
         if bytes_read != U64_SIZE {
             return Err(EasypackError::InvalidFileError(format!(
-                "Not enough bytes to read the pos of the {}th toc? bytes_read: {}",
-                i, bytes_read
+                "Not enough bytes to read the pos of the {i}th toc? bytes_read: {bytes_read}"
             )));
         }
         let size = u64::from_le_bytes(buf64);
@@ -141,8 +138,7 @@ pub fn read_toc_entries<R: Read + Seek>(
         let bytes_read = r.read(&mut buf8)?;
         if bytes_read != 1 {
             return Err(EasypackError::InvalidFileError(format!(
-                "Not enough bytes to read the str_len of the {}th toc? bytes_read: {}",
-                i, bytes_read
+                "Not enough bytes to read the pos of the {i}th toc? bytes_read: {bytes_read}"
             )));
         }
         let str_len = u8::from_le_bytes(buf8) as usize;
@@ -159,8 +155,7 @@ pub fn read_toc_entries<R: Read + Seek>(
         let bytes_read = r.read(&mut buf[..str_len])?;
         if bytes_read != str_len {
             return Err(EasypackError::InvalidFileError(format!(
-                "Not enough bytes to read the name of the {}th toc? bytes_read: {}",
-                i, bytes_read
+                "Not enough bytes to read the pos of the {i}th toc? bytes_read: {bytes_read}"
             )));
         }
         let name = String::from_utf8(buf).unwrap();
