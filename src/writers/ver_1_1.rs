@@ -26,8 +26,8 @@ A list of
 
 * FOOTER
 
-- u64 (4 bytes) the position of the `ToC` table in the file
-- u64 (4 bytes) the number of records
+- u64 (8 bytes) the position of the `ToC` table in the file
+- u64 (8 bytes) the number of records
 
 */
 
@@ -35,7 +35,7 @@ use std::io::Write;
 use std::marker::PhantomData;
 
 use crate::error::{EasypackError, Result};
-use crate::utils;
+use crate::utils::{self, Version};
 
 pub trait Steps {}
 
@@ -51,14 +51,14 @@ writersteps!(HeaderStep);
 writersteps!(RecordStep);
 
 #[derive(Debug)]
-struct TocEntry {
+pub struct TocEntry {
     record_name: String,
     data_start: u64,
     data_len: u64,
 }
 
 impl TocEntry {
-    const fn new(record_name: String, data_start: u64, data_len: u64) -> Self {
+    pub const fn new(record_name: String, data_start: u64, data_len: u64) -> Self {
         Self {
             record_name,
             data_start,
@@ -116,6 +116,31 @@ impl<W: Write> Packer<NoneStep, W> {
 }
 
 impl<W: Write> Packer<HeaderStep, W> {
+    /// Append to a given, already loaded, file.
+    /// This function can be used in case we have already read the `Toc` of
+    /// another file, and we simply want to append to it.
+    /// # Errors
+    /// Any IO error.
+    /// If the version of the original file does not match this one.
+    pub fn append_mode(
+        &mut self,
+        toc: Vec<TocEntry>,
+        file_size: u64,
+        old_version: &Version,
+    ) -> Result<Packer<RecordStep, W>> {
+        if old_version != &(1, 1).into() {
+            return Err(EasypackError::InvalidFileError(format!(
+                "Cannot append to version {old_version:?}, expected (1, 1)"
+            )));
+        }
+        Ok(Packer {
+            pos: file_size,
+            writer: self.writer.take(),
+            _step: PhantomData,
+            toc: Some(toc),
+        })
+    }
+
     /// Write the header of the file.
     /// The `ToC` is located at the bottom of the file, and we want to keep it
     /// like that since this allow us to expand the file without the need to

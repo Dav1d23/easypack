@@ -19,6 +19,16 @@ impl<'r, R: Read + Seek> super::VersionedUnpacker<'r> for Unpacker<'r, R> {
     fn read_record(&mut self, record_name: &str) -> Result<Option<utils::Record>> {
         self.read_record(record_name)
     }
+
+    fn inspect_toc(
+        &mut self,
+        f: &mut dyn for<'a, 'b, 'c> FnMut(&'a u64, &'b u64, &'c std::string::String),
+    ) -> Result<()> {
+        self.toc
+            .iter()
+            .for_each(|(a, b, c)| f(&u64::from(*a), &u64::from(*b), c));
+        Ok(())
+    }
 }
 
 impl<'r, R: Read + Seek> Unpacker<'r, R> {
@@ -31,13 +41,9 @@ impl<'r, R: Read + Seek> Unpacker<'r, R> {
         }
     }
 
-    /// Read the `ToC` from the file.
-    /// # Errors
-    /// In the input file is invalid.
-    pub fn read_toc(&mut self) -> Result<()> {
+    fn read_toc(&mut self) -> Result<()> {
         let (toc_position, toc_len) = read_footer(&mut self.reader)?;
         self.toc = read_toc_entries(&mut self.reader, toc_position, toc_len)?;
-
         Ok(())
     }
 

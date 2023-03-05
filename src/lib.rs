@@ -151,6 +151,60 @@ pub fn pack_records(
     Ok(())
 }
 
+/// Pack the given `records` in the specified `outfile`, which already contains
+/// packed data. This operation is effectively an update.
+///
+/// # Errors
+///
+/// Check `EasyPackError` for the possible errors.
+pub fn pack_records_update(
+    outfile: impl AsRef<Path>,
+    records: impl Iterator<Item = Record>,
+) -> Result<()> {
+    let (old_toc, file_size, version) = {
+        let infile = OpenOptions::new().create(false).read(true).open(&outfile)?;
+        let file_size = infile
+            .metadata()
+            .expect("Unable to read the size of the file")
+            .len();
+
+        let mut bufreader = BufReader::new(infile);
+        let version = readers::read_header(&mut bufreader)?;
+        let mut unpacker = readers::get_unpacker(&mut bufreader)?;
+        // Init the unpacker, otherwise the Toc is empty
+        // XXX Bad, should do something to avoid the need to "remember" about
+        // this detail :)
+        unpacker.init()?;
+
+        let mut old_toc = vec![];
+        unpacker
+            .inspect_toc(&mut |pos, size, name| {
+                old_toc.push((*pos, *size, name.clone()));
+            })
+            .expect("Unable to read the toc?");
+        (old_toc, file_size, version)
+    };
+    let initial_toc: Vec<_> = old_toc
+        .into_iter()
+        .map(|(pos, size, name)| writers::TocEntry::new(name, pos, size))
+        .collect();
+    {
+        let outfile = OpenOptions::new()
+            .create(false)
+            .append(true)
+            .open(&outfile)?;
+        let bufwriter = BufWriter::new(outfile);
+        let mut packer = Packer::from_writer(bufwriter);
+        let mut writer = packer.append_mode(initial_toc, file_size, &version)?;
+        for record in records {
+            writer.write_record(record)?;
+        }
+        writer.close()?;
+    }
+
+    Ok(())
+}
+
 /// Pack the given `files` in the specified `outfile`.
 ///
 /// # Errors
@@ -487,6 +541,60 @@ pub mod test {
 
         let record = res.1.get(0).unwrap();
         assert_eq!(record, "nope");
+
+        Ok(())
+    }
+
+    #[test]
+    /// Update a file, without making a new one.
+    fn update_file() -> std::result::Result<(), Box<dyn std::error::Error>> {
+        let packed_file = Tempfile::from_path(PathBuf::from_str("/tmp/anotherpacked_2.bin")?);
+        {
+            // Pack some data
+            pack_records(
+                &*packed_file,
+                [
+                    utils::Record::new("packed_first_1".into(), vec![0x12, 0x34]),
+                    utils::Record::new("packed_first_2".into(), vec![0x34]),
+                ]
+                .into_iter(),
+            )?;
+        }
+
+        {
+            // Add some records
+            pack_records_update(
+                &*packed_file,
+                [
+                    utils::Record::new("repacked_1".into(), vec![0x67, 0x89]),
+                    utils::Record::new("repacked_2".into(), vec![0x66]),
+                ]
+                .into_iter(),
+            )?;
+        }
+
+        // Unpack and verify that all content is there.
+        let res = unpack_records(
+            &*packed_file,
+            [
+                "packed_first_1",
+                "packed_first_2",
+                "repacked_1",
+                "repacked_2",
+            ]
+            .into_iter(),
+        )?;
+
+        dbg!(&res);
+        assert_eq!(res.0.len(), 4);
+        assert_eq!(res.1.len(), 0);
+
+        assert_eq!(res.0.get(0).unwrap().data.as_slice(), [0x12, 0x34]);
+        assert_eq!(res.0.get(1).unwrap().data.as_slice(), [0x34]);
+        assert_eq!(res.0.get(2).unwrap().data.as_slice(), [0x67, 0x89]);
+        assert_eq!(res.0.get(3).unwrap().data.as_slice(), [0x66]);
+
+        std::mem::forget(packed_file);
 
         Ok(())
     }

@@ -19,6 +19,13 @@ pub trait VersionedUnpacker<'r> {
     /// # Errors
     /// In case the record name is too long.
     fn read_record(&mut self, record_name: &str) -> Result<Option<utils::Record>>;
+    /// Inspect the `ToC` from the file.
+    /// # Errors
+    /// In the input file is invalid.
+    fn inspect_toc(
+        &mut self,
+        f: &mut dyn for<'a, 'b, 'c> FnMut(&'a u64, &'b u64, &'c std::string::String),
+    ) -> Result<()>;
 }
 
 /// Read the header, and get the version out (maj, min)
