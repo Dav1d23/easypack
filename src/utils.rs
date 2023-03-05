@@ -3,7 +3,7 @@ pub static FILE_TYPE: &str = "SMPL";
 /// The header size.
 pub static HEADER_SIZE: u64 = 6;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct Version {
     maj: u8,
     min: u8,
@@ -22,6 +22,7 @@ impl From<Version> for (u8, u8) {
 }
 
 /// The abstraction over a single record in the file.
+#[derive(Debug)]
 pub struct Record {
     pub name: String,
     pub data: Vec<u8>,
@@ -47,7 +48,9 @@ pub mod test {
 
     impl Tempfile {
         pub fn from_path(path: PathBuf) -> Self {
-            assert!(!path.exists(), "Please remove {:?}", &path);
+            if path.exists() {
+                fs::remove_file(&path).expect("Unable to remove {path}");
+            }
             Self { path }
         }
     }

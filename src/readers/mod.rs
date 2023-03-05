@@ -1,4 +1,4 @@
-use std::io::{Read, Seek, SeekFrom};
+use std::io::{Read, Seek};
 
 use crate::error::{EasypackError, Result};
 use crate::utils;
@@ -19,24 +19,29 @@ pub trait VersionedUnpacker<'r> {
     /// # Errors
     /// In case the record name is too long.
     fn read_record(&mut self, record_name: &str) -> Result<Option<utils::Record>>;
+    /// Inspect the `ToC` from the file.
+    /// # Errors
+    /// In the input file is invalid.
+    fn inspect_toc(
+        &mut self,
+        f: &mut dyn for<'a, 'b, 'c> FnMut(&'a u64, &'b u64, &'c std::string::String),
+    ) -> Result<()>;
 }
 
 /// Read the header, and get the version out (maj, min)
 pub fn read_header<R: Read + Seek>(r: &mut R) -> Result<utils::Version> {
-    r.seek(SeekFrom::Start(0))?;
+    r.rewind()?;
     let mut buf = vec![0; 4];
     if r.read(&mut buf[..4])? != 4 {
         return Err(EasypackError::InvalidFileError(
             "Not enough bytes in the header".to_owned(),
         ));
     }
-    let header = String::from_utf8(buf[..4].to_vec()).map_err(|e| {
-        EasypackError::InvalidFileError(format!("Unable to read the header: {}", e))
-    })?;
+    let header = String::from_utf8(buf[..4].to_vec())
+        .map_err(|e| EasypackError::InvalidFileError(format!("Unable to read the header: {e}")))?;
     if header.as_bytes() != utils::FILE_TYPE.as_bytes() {
         return Err(EasypackError::InvalidFileError(format!(
-            "Header does not match, found {}",
-            header
+            "Header does not match, found {header}"
         )));
     }
     if r.read(&mut buf[..2])? != 2 {
@@ -45,6 +50,7 @@ pub fn read_header<R: Read + Seek>(r: &mut R) -> Result<utils::Version> {
         ));
     }
     // Unwrap is ok here since I'm checking that I have 2 values above.
+    #[allow(clippy::get_first)]
     let v1 = [*buf.get(0).unwrap(); 1];
     let v2 = [*buf.get(1).unwrap(); 1];
     let v1 = u8::from_le_bytes(v1);
@@ -63,8 +69,7 @@ pub fn get_unpacker<'r, R: Read + Seek>(
         (1, 0) => Ok(Box::new(ver_1_0::Unpacker::from_reader(r))),
         (1, 1) => Ok(Box::new(ver_1_1::Unpacker::from_reader(r))),
         el => Err(EasypackError::InvalidFileError(format!(
-            "Found version `{:?}`, which is not supported.",
-            el
+            "Found version `{el:?}`, which is not supported."
         ))),
     }
 }

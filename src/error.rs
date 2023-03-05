@@ -18,7 +18,7 @@ pub enum EasypackError {
 
 impl std::fmt::Display for EasypackError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&format!("{:?}", self))
+        f.write_str(&format!("{self:?}"))
     }
 }
 
@@ -29,7 +29,7 @@ impl From<std::io::Error> for EasypackError {
 }
 impl std::convert::From<std::num::TryFromIntError> for EasypackError {
     fn from(e: std::num::TryFromIntError) -> Self {
-        Self::InternalError(format!("{}", e))
+        Self::InternalError(format!("{e}"))
     }
 }
 
